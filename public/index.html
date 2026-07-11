@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS ARENA — Shooter Cooperativo 3D</title>
+<meta name="description" content="Shooter cooperativo 3D de supervivencia por oleadas. 1-6 jugadores, primera y tercera persona.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+<script src="/socket.io/socket.io.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "/vendor/three/build/three.module.js",
+    "three/addons/": "/vendor/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+
+<!-- ══════════ PANTALLA DE CARGA ══════════ -->
+<div id="screen-loading" class="screen active">
+  <div class="load-box">
+    <h1 class="logo">NEXUS<span>ARENA</span></h1>
+    <div class="load-bar"><div id="load-fill"></div></div>
+    <p id="load-text">Cargando recursos…</p>
+  </div>
+</div>
+
+<!-- ══════════ MENÚ PRINCIPAL ══════════ -->
+<div id="screen-menu" class="screen">
+  <div class="menu-left">
+    <h1 class="logo">NEXUS<span>ARENA</span></h1>
+    <p class="tagline">Sobrevive a la horda. Solo o con tu escuadrón.</p>
+    <nav class="menu-nav">
+      <button class="btn btn-primary" id="btn-solo">▶ &nbsp;Un jugador</button>
+      <button class="btn" id="btn-multi">👥 &nbsp;Multijugador</button>
+      <button class="btn" id="btn-settings">⚙ &nbsp;Ajustes</button>
+      <button class="btn" id="btn-help">❔ &nbsp;Cómo jugar</button>
+    </nav>
+    <p class="credits">Assets: Poly Haven (CC0) · three.js examples · Hecho con three.js + Socket.IO</p>
+  </div>
+  <div class="menu-right">
+    <div class="panel profile-panel">
+      <h3>PERFIL DE COMBATE</h3>
+      <label class="field">Nombre de operador
+        <input id="inp-name" maxlength="16" placeholder="Operador">
+      </label>
+      <label class="field">Color de escuadra
+        <div id="skin-picker" class="skin-picker"></div>
+      </label>
+      <div class="stats-grid">
+        <div class="stat"><span id="st-bestwave">0</span><label>Mejor oleada</label></div>
+        <div class="stat"><span id="st-kills">0</span><label>Bajas totales</label></div>
+        <div class="stat"><span id="st-score">0</span><label>Mejor puntuación</label></div>
+        <div class="stat"><span id="st-games">0</span><label>Partidas</label></div>
+      </div>
+      <div class="unlocks">
+        <h4>ARSENAL</h4>
+        <div id="unlock-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MULTIJUGADOR ══════════ -->
+<div id="screen-multi" class="screen">
+  <div class="panel center-panel">
+    <h2>MULTIJUGADOR <small>· hasta 6 jugadores</small></h2>
+    <button class="btn btn-primary btn-wide" id="btn-quick">⚡ Partida rápida</button>
+    <div class="row">
+      <button class="btn btn-wide" id="btn-create-public">Crear sala pública</button>
+      <button class="btn btn-wide" id="btn-create-private">Crear sala privada</button>
+    </div>
+    <div class="join-row">
+      <input id="inp-code" maxlength="4" placeholder="CÓDIGO" autocomplete="off">
+      <button class="btn" id="btn-join">Unirse</button>
+    </div>
+    <p id="multi-error" class="error"></p>
+    <button class="btn btn-ghost" id="btn-multi-back">← Volver</button>
+  </div>
+</div>
+
+<!-- ══════════ LOBBY ══════════ -->
+<div id="screen-lobby" class="screen">
+  <div class="panel center-panel">
+    <h2>SALA <span id="lobby-code" class="room-code"></span></h2>
+    <p class="hint">Comparte el código para que se unan tus aliados (máx. 6).</p>
+    <ul id="lobby-players" class="player-list"></ul>
+    <div class="row">
+      <button class="btn" id="btn-ready">Listo ✓</button>
+      <button class="btn btn-primary" id="btn-start" disabled>INICIAR PARTIDA</button>
+    </div>
+    <p id="lobby-hint" class="hint"></p>
+    <button class="btn btn-ghost" id="btn-lobby-leave">← Abandonar sala</button>
+  </div>
+</div>
+
+<!-- ══════════ AJUSTES ══════════ -->
+<div id="screen-settings" class="screen">
+  <div class="panel center-panel settings-panel">
+    <h2>AJUSTES</h2>
+    <label class="field slider-field">Sensibilidad del ratón <output id="out-sens"></output>
+      <input type="range" id="set-sens" min="0.2" max="3" step="0.1">
+    </label>
+    <label class="field slider-field">Campo de visión (FOV) <output id="out-fov"></output>
+      <input type="range" id="set-fov" min="60" max="110" step="1">
+    </label>
+    <label class="field slider-field">Volumen general <output id="out-master"></output>
+      <input type="range" id="set-master" min="0" max="1" step="0.05">
+    </label>
+    <label class="field slider-field">Música <output id="out-music"></output>
+      <input type="range" id="set-music" min="0" max="1" step="0.05">
+    </label>
+    <label class="field slider-field">Efectos <output id="out-sfx"></output>
+      <input type="range" id="set-sfx" min="0" max="1" step="0.05">
+    </label>
+    <label class="field">Calidad gráfica
+      <select id="set-quality">
+        <option value="low">Baja</option>
+        <option value="medium">Media</option>
+        <option value="high">Alta</option>
+        <option value="ultra">Ultra</option>
+      </select>
+    </label>
+    <label class="check-field"><input type="checkbox" id="set-inverty"> Invertir eje Y</label>
+    <label class="check-field"><input type="checkbox" id="set-fps"> Mostrar FPS</label>
+    <button class="btn btn-ghost" id="btn-settings-back">← Volver</button>
+  </div>
+</div>
+
+<!-- ══════════ CÓMO JUGAR ══════════ -->
+<div id="screen-help" class="screen">
+  <div class="panel center-panel">
+    <h2>CÓMO JUGAR</h2>
+    <div class="help-grid">
+      <div><kbd>W A S D</kbd> Moverse</div>
+      <div><kbd>Shift</kbd> Correr</div>
+      <div><kbd>Espacio</kbd> Saltar</div>
+      <div><kbd>Ratón</kbd> Apuntar / Disparar</div>
+      <div><kbd>R</kbd> Recargar</div>
+      <div><kbd>1-4</kbd> Cambiar arma</div>
+      <div><kbd>V</kbd> Cambiar 1ª / 3ª persona</div>
+      <div><kbd>E</kbd> Revivir aliado caído</div>
+      <div><kbd>Tab</kbd> Puntuaciones</div>
+      <div><kbd>T</kbd> Chat</div>
+      <div><kbd>Esc</kbd> Pausa</div>
+    </div>
+    <p class="hint">Elimina oleadas de robots hostiles. Cada oleada es más dura. Los enemigos sueltan
+    botiquines y munición. Los disparos a la cabeza hacen más daño. Consigue bajas para desbloquear armas.
+    En cooperativo, revive a tus aliados antes de que caiga todo el equipo.</p>
+    <button class="btn btn-ghost" id="btn-help-back">← Volver</button>
+  </div>
+</div>
+
+<!-- ══════════ HUD ══════════ -->
+<div id="hud" class="hidden">
+  <div id="crosshair"><span></span><span></span><span></span><span></span><i></i></div>
+  <div id="hitmarker"></div>
+  <div id="damage-vignette"></div>
+
+  <div id="hud-bottom-left">
+    <div id="hp-wrap"><div id="hp-bar"><div id="hp-fill"></div></div><span id="hp-num">100</span></div>
+    <div id="revive-bar-wrap" class="hidden"><label>REVIVIENDO…</label><div><i id="revive-fill"></i></div></div>
+  </div>
+
+  <div id="hud-bottom-right">
+    <div id="weapon-name">RIFLE DE ASALTO</div>
+    <div id="ammo"><span id="ammo-mag">30</span><small id="ammo-reserve">/ 120</small></div>
+  </div>
+
+  <div id="hud-top">
+    <div id="wave-info"><label>OLEADA</label><span id="wave-num">—</span></div>
+    <div id="enemies-left"><label>HOSTILES</label><span id="enemies-num">0</span></div>
+    <div id="score-info"><label>PUNTOS</label><span id="score-num">0</span></div>
+  </div>
+
+  <div id="killfeed"></div>
+  <div id="announce" class="hidden"></div>
+  <div id="interact-prompt" class="hidden"></div>
+  <div id="fps-counter" class="hidden"></div>
+
+  <div id="chatbox">
+    <div id="chat-log"></div>
+    <input id="chat-input" class="hidden" maxlength="120" placeholder="Escribe un mensaje… (Enter)">
+  </div>
+
+  <div id="scoreboard" class="hidden">
+    <h3>PUNTUACIONES</h3>
+    <table><thead><tr><th>Operador</th><th>Puntos</th><th>Bajas</th><th>Estado</th></tr></thead>
+    <tbody id="scoreboard-body"></tbody></table>
+  </div>
+
+  <div id="spectate-banner" class="hidden">HAS CAÍDO — un aliado puede revivirte con <kbd>E</kbd></div>
+</div>
+
+<!-- ══════════ PAUSA ══════════ -->
+<div id="screen-pause" class="screen overlay">
+  <div class="panel center-panel">
+    <h2>PAUSA</h2>
+    <button class="btn btn-primary btn-wide" id="btn-resume">Reanudar</button>
+    <button class="btn btn-wide" id="btn-pause-settings">Ajustes</button>
+    <button class="btn btn-wide btn-danger" id="btn-quit">Abandonar partida</button>
+  </div>
+</div>
+
+<!-- ══════════ FIN DE PARTIDA ══════════ -->
+<div id="screen-gameover" class="screen overlay">
+  <div class="panel center-panel">
+    <h2 class="go-title">FIN DE LA PARTIDA</h2>
+    <p id="go-subtitle"></p>
+    <table class="go-table"><thead><tr><th>Operador</th><th>Puntos</th><th>Bajas</th></tr></thead>
+    <tbody id="go-body"></tbody></table>
+    <div class="row">
+      <button class="btn btn-primary" id="btn-go-lobby">Volver al lobby</button>
+      <button class="btn" id="btn-go-menu">Menú principal</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

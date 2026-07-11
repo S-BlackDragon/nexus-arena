@@ -1,0 +1,20 @@
+{
+  "name": "nexus-arena",
+  "version": "1.0.0",
+  "description": "NEXUS ARENA - Shooter cooperativo 3D de supervivencia por oleadas (1-6 jugadores)",
+  "type": "module",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3",
+    "three": "^0.160.0"
+  }
+}
