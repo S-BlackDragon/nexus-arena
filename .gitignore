@@ -1,3 +1,4 @@
 node_modules/
+cloudflared.exe
 npm-debug.log*
 .DS_Store

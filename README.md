@@ -88,6 +88,13 @@ El servidor es dueño del estado de los enemigos (tick de 10 Hz) y valida cada i
 (distancia máxima, tope de daño por arma, límite de disparos por segundo). Los clientes
 interpolan enemigos y jugadores remotos para un movimiento fluido.
 
+## Jugar online hosteando desde tu PC (sin abrir puertos)
+
+Doble clic en **`jugar-online.bat`**: arranca el servidor y crea un túnel gratuito de
+Cloudflare. Te mostrará una URL `https://xxxx.trycloudflare.com` — compártela con tus
+amigos (funciona desde cualquier red). La URL cambia en cada arranque y el juego vive
+mientras tu ventana siga abierta.
+
 ## Jugar online con amigos
 
 El juego necesita su servidor Node ejecutándose (GitHub solo aloja el código). La forma
